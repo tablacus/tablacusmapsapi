@@ -6,7 +6,7 @@ Yet another Maps API with leaflet (OpenStreetMap)
 
 ### [Async sample](http://tmapapi.netlify.com/async.html)
 
-```
+```js
 <script>
 function initMap() {
     var latlng = new google.maps.LatLng(37.7879363,-122.40751740318);
@@ -27,7 +27,7 @@ function initMap() {
 
 ### [Sync sample](http://tmapapi.netlify.com/sync.html)
 
-```
+```js
 <div id="map" style="width: 100%; height: 400px"></div>
 <link href="https://unpkg.com/leaflet@1.3.3/dist/leaflet.css" rel="stylesheet" /><script src="https://unpkg.com/leaflet@1.3.3/dist/leaflet.js"></script><script src="tmapapi.php"></script>
 <script>
