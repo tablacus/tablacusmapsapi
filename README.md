@@ -4,7 +4,7 @@ Yet another Maps API with leaflet (OpenStreetMap)
 
 ## Usage
 
-### Async sample
+### [Async sample](http://tmapapi.netlify.com/async.html)
 
 ```
 <script>
@@ -25,7 +25,7 @@ function initMap() {
 <div id="map" style="width: 100%; height: 400px"></div>
 ```
 
-### Sync sample
+### [Sync sample](http://tmapapi.netlify.com/sync.html)
 
 ```
 <div id="map" style="width: 100%; height: 400px"></div>
