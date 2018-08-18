@@ -28,6 +28,7 @@ function initMap() {
 ### Sync sample
 
 ```
+<div id="map" style="width: 100%; height: 400px"></div>
 <link href="https://unpkg.com/leaflet@1.3.3/dist/leaflet.css" rel="stylesheet" /><script src="https://unpkg.com/leaflet@1.3.3/dist/leaflet.js"></script><script src="tmapapi.php"></script>
 <script>
 var latlng = new google.maps.LatLng(37.7879363,-122.40751740318);
@@ -40,6 +41,4 @@ var marker = new google.maps.Marker({
     map: map
 });
 </script>
-
-<div id="map" style="width: 100%; height: 400px"></div>
 ```
