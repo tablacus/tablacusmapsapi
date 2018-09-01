@@ -12,6 +12,19 @@ tablacus =
 
     maps:
     {
+        MapTypeId: {},
+        event: {
+            addListener: function ()
+            {},
+
+            trigger: function (o, event)
+            {
+                var evt = document.createEvent("HTMLEvents");
+                evt.initEvent(event, true, true);
+                return !o.el.dispatchEvent(evt);    
+            },
+        },
+
         LatLng: function (lat, lng)
         {
             this.lat = lat;
@@ -32,16 +45,12 @@ tablacus =
 
         Map: function (el, opt)
         {
-            this.opt = {};
-            for (var i in opt) {
-                if (opt[i]) {
-                    this.opt[i] = opt[i];
-                }
-            }
             if (opt.center) {
-                this.opt.center = [opt.center.lat, opt.center.lng];
+                opt.center[0] = opt.center.lat;
+                opt.center[1] = opt.center.lng;
             }
-            this.map = L.map(el, this.opt);
+            this.map = L.map(el, opt);
+            this.el = el;
             L.tileLayer(tablacus.settings.tilelayer, { attribution: tablacus.settings.attribution }
             ).addTo(this.map);
 
@@ -49,24 +58,42 @@ tablacus =
             {
                 this.map.fitBounds(glatlngs.latlngs);
             }
+
+            this.setCenter = function (latlng)
+            {
+                this.map.panTo(new L.LatLng(latlng.lat, latlng.lng));
+            },
+
+            this.setZoom = function (zoom)
+            {
+                this.map.setZoom(zoom);
+            }
         },
 
         Marker: function (opt)
         {
-            opt2 = {};
-            for (var i in opt) {
-                if (opt2[i]) {
-                    opt2[i] = opt[i];
-                }
+            this.map = opt.map.map;
+            if (opt.position) {
+                L.marker(new L.LatLng(opt.position.lat, opt.position.lng)).addTo(opt.map.map);
+                this.position = opt.position;
             }
-            delete opt2.map;
-            var latlng = opt.position ? [opt.position.lat, opt.position.lng] : [];
-            L.marker(latlng).addTo(opt.map.map);            
+
+            this.setPosition = function (latlng)
+            {
+                L.marker(new L.LatLng(latlng.lat, latlng.lng)).addTo(this.map);
+                this.position = latlng;
+            }           
+
+            this.getPosition = function ()
+            {
+                return this.position;
+            }
+
         },
 
         InfoWindow: function (opt)
         {
-            this.popup = L.popup().setLatLng(opt.position ? [opt.position.lat, opt.position.lng] : []).setContent(opt.content);
+            this.popup = L.popup().setLatLng(new L.LatLng(opt.position.lat, opt.position.lng)).setContent(opt.content);
             this.open = function (map)
             {
                 this.popup.openOn(map.map);
@@ -106,6 +133,10 @@ tablacus =
             {
                 this.latlngs.push([latlng.lat, latlng.lng]);
             }
+        },
+
+        Geocoder: function ()
+        {
         },
 
         callback: function ()
