@@ -14,8 +14,10 @@ tablacus =
     {
         MapTypeId: {},
         event: {
-            addListener: function ()
-            {},
+            addListener: function (event, fn)
+            {
+                
+            },
 
             trigger: function (o, event)
             {
@@ -43,7 +45,9 @@ tablacus =
 
         LLatLng: function (latlng)
         {
-            return [/function/.test(latlng.lat) ? latlng.lat() : latlng.lat, /function/.test(latlng.lng) ? latlng.lng() : latlng.lng];
+            if (latlng) {
+                return [/function/.test(latlng.lat) ? latlng.lat() : latlng.lat, /function/.test(latlng.lng) ? latlng.lng() : latlng.lng];
+            }
         },
 
         LatLngs: function (latlngs)
@@ -89,7 +93,9 @@ tablacus =
 
             this.setCenter = function (latlng)
             {
-                this.map.panTo(tablacus.maps.LLatLng(latlng));
+                try {
+                    this.map.panTo(tablacus.maps.LLatLng(latlng));
+                } catch (e) {}
             },
 
             this.setZoom = function (zoom)
