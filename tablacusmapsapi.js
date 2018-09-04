@@ -4,8 +4,8 @@ tablacus =
 {
     settings:
     {
-        leafletjs: 'https://unpkg.com/leaflet@1.3.3/dist/leaflet.js',
-        leafletcss: 'https://unpkg.com/leaflet@1.3.3/dist/leaflet.css',
+        leafletjs: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.js',
+        leafletcss: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.css',
         tilelayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     },
@@ -277,6 +277,20 @@ tablacus =
         el.rel = "stylesheet";
         el.href = tablacus.settings.leafletcss;
         el.type = "text/css";
+		el.onload = function ()
+		{
+			var css = document.styleSheets.item(0);
+	        css.insertRule('.leaflet-zoom-box { z-index: 280 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-pane { z-index: 240 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-overlay-pane { z-index: 240 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-shadow-pane { z-index: 250 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-marker-pane { z-index: 260 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-tooltip-pane { z-index: 265 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-popup-pane { z-index: 270 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-control { z-index: 280 !important; }', css.cssRules.length);
+	        css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 299 !important; }', css.cssRules.length);
+	        css.insertRule('.ai1ec-gmap-link { z-index: 299 !important; }', css.cssRules.length);
+        };
         head.appendChild(el);
     }
     if (tablacus.settings.alias) {
