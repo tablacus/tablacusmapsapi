@@ -113,6 +113,10 @@ tablacus =
             {
                 if (latlng) {
                     this.marker.setLatLng(tablacus.maps.LLatLng(latlng));
+                    if (!this.added) {
+                        this.marker.addTo(this.map);
+                        this.added = true;
+                    }
                 }
             }           
 
@@ -123,7 +127,6 @@ tablacus =
             }
 
             this.setPosition(opt.position);
-            this.marker.addTo(opt.map.map);
         },
 
         InfoWindow: function (opt)
