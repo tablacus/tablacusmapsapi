@@ -4,7 +4,7 @@ Yet another Maps API with leaflet (OpenStreetMap)
 
 ## Usage
 
-### [Sample](http://tmapapi.netlify.com/async.html)
+### [Sample](http://tmapapi.netlify.com/sample.html)
 
 ```js
 <script>
