@@ -7,7 +7,8 @@ tablacus =
         leafletjs: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.js',
         leafletcss: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.css',
         tilelayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        geocoder: 'https://nominatim.openstreetmap.org/search?format=xml&q='
     },
 
     maps:
@@ -31,16 +32,6 @@ tablacus =
         {
             this[0] = lat;
             this[1] = lng;
-
-            this.lat = function ()
-            {
-                return this[0];
-            };
-
-            this.lng = function ()
-            {
-                return this[1];
-            };
         },
 
         LLatLng: function (latlng)
@@ -53,13 +44,6 @@ tablacus =
         LatLngs: function (latlngs)
         {
             this.latlngs = latlngs;
-
-            this.forEach = function (fn) {
-                for (var i in this.latlngs) {
-                    var latlng = this.latlngs[i];
-                    fn(new tablacus.maps.LatLng(latlng[0], latlng[1]));
-                }
-            }
         },
 
         Map: function (el, opt)
@@ -80,62 +64,18 @@ tablacus =
             this.el = el;
             L.tileLayer(tablacus.settings.tilelayer, { attribution: tablacus.settings.attribution }
             ).addTo(this.map);
-
-            this.fitBounds = function (latlngs)
-            {
-                var llatlngs = [];
-                for (var i in latlngs.latlngs)
-                {
-                    llatlngs.push(tablacus.maps.LLatLng(latlngs.latlngs[i]));
-                }
-                this.map.fitBounds(llatlngs);
-            }
-
-            this.setCenter = function (latlng)
-            {
-                try {
-                    this.map.panTo(tablacus.maps.LLatLng(latlng));
-                } catch (e) {}
-            },
-
-            this.setZoom = function (zoom)
-            {
-                this.map.setZoom(zoom);
-            }
         },
 
         Marker: function (opt)
         {
             this.map = opt.map.map;
             this.marker = L.marker();
-
-            this.setPosition = function (latlng)
-            {
-                if (latlng) {
-                    this.marker.setLatLng(tablacus.maps.LLatLng(latlng));
-                    if (!this.added) {
-                        this.marker.addTo(this.map);
-                        this.added = true;
-                    }
-                }
-            }           
-
-            this.getPosition = function ()
-            {
-                var latlng = this.marker.getLatLng(); 
-                return new tablacus.maps.LatLng(latlng[0], latlng[1]);
-            }
-
             this.setPosition(opt.position);
         },
 
         InfoWindow: function (opt)
         {
             this.popup = L.popup().setContent(opt.content);
-            this.open = function (map)
-            {
-                this.popup.openOn(map.map);
-            }
             if (opt.position) {
                 this.popup.setLatLng(tablacus.maps.LLatLng(opt.position));
             }
@@ -170,65 +110,9 @@ tablacus =
         LatLngBounds: function ()
         {
             this.latlngs = [];
-            this.extend = function (latlng)
-            {
-                this.latlngs.push(latlng);
-            }
         },
 
-        Geocoder: function ()
-        {
-            this.geocode = function (opt, callback)
-            {
-                var url = "https://nominatim.openstreetmap.org/search?format=xml&q=" + encodeURIComponent(opt.address);
-                var xhr = new XMLHttpRequest();
-                xhr.onload = function() 
-				{ 
-                    var results = [];
-                    var xml = xhr.responseXML.getElementsByTagName("place");
-                    for (var i = 0; i < xml.length; i++) {
-                        var o = { 
-                            geometry: {
-                                location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"))
-                            },
-                            formatted_address: xml[i].getAttribute("display_name"),
-                            address_components: []
-                        }
-/*
-                        var child = xml[i].childNodes;
-                        for (var j = child.length; j--;) {
-                            var n = child[j].tagName;
-                            if (n == 'house_number') {
-                                o.address_components.unshift({
-                                    "long_name" : child[j].textContent,
-                                    "short_name" : child[j].textContent,
-                                    "types" : [ "street_number", n ]
-                                });
-                            }
-                            if (n == 'road') {
-                                o.address_components.unshift({
-                                    "long_name" : child[j].textContent,
-                                    "short_name" : child[j].textContent,
-                                    "types" : [ "route", n ]
-                                });
-                            }
-                            if (n == 'village') {
-                                o.address_components.unshift({
-                                    "long_name" : child[j].textContent,
-                                    "short_name" : child[j].textContent,
-                                    "types" : [ "locality", "political", n ]
-                                });
-                            }
-                        }
-*/
-                        results.push(o);
-                    }
-                    callback(results, tablacus.maps.GeocoderStatus.OK);
-				}
-                xhr.open("GET", url, true);
-    			xhr.send(null);
-            }
-        },
+        Geocoder: function () {},
 
         GeocoderStatus: {
             OK: "OK",
@@ -248,6 +132,124 @@ tablacus =
             setTimeout(tablacus.maps.callback, 500);
         }
     }
+};
+
+tablacus.maps.LatLng.prototype.lat = function ()
+{
+    return this[0];
+};
+
+tablacus.maps.LatLng.prototype.lng = function ()
+{
+    return this[1];
+};
+
+tablacus.maps.LatLngs.prototype.forEach = function (fn)
+{
+    for (var i in this.latlngs) {
+        var latlng = this.latlngs[i];
+        fn(new tablacus.maps.LatLng(latlng[0], latlng[1]));
+    }
+};
+
+tablacus.maps.Map.prototype.fitBounds = function (latlngs)
+{
+    var llatlngs = [];
+    for (var i in latlngs.latlngs)
+    {
+        llatlngs.push(tablacus.maps.LLatLng(latlngs.latlngs[i]));
+    }
+    this.map.fitBounds(llatlngs);
+};
+
+tablacus.maps.Map.prototype.setCenter = function (latlng)
+{
+    try {
+        this.map.panTo(tablacus.maps.LLatLng(latlng));
+    } catch (e) {}
+};
+
+tablacus.maps.Map.prototype.setZoom = function (zoom)
+{
+    this.map.setZoom(zoom);
+};
+
+tablacus.maps.Marker.prototype.setPosition = function (latlng)
+{
+    if (latlng) {
+        this.marker.setLatLng(tablacus.maps.LLatLng(latlng));
+        if (!this.added) {
+            this.marker.addTo(this.map);
+            this.added = true;
+        }
+    }
+};
+
+tablacus.maps.Marker.prototype.getPosition = function ()
+{
+    var latlng = this.marker.getLatLng(); 
+    return new tablacus.maps.LatLng(latlng[0], latlng[1]);
+};
+
+tablacus.maps.InfoWindow.prototype.open = function (map)
+{
+    this.popup.openOn(map.map);
+};
+
+tablacus.maps.LatLngBounds.prototype.extend = function (latlng)
+{
+    this.latlngs.push(latlng);
+};
+
+tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
+{
+    var url = tablacus.settings.geocoder + encodeURIComponent(opt.address);
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() 
+    { 
+        var results = [];
+        var xml = xhr.responseXML.getElementsByTagName("place");
+        for (var i = 0; i < xml.length; i++) {
+            var o = { 
+                geometry: {
+                    location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"))
+                },
+                formatted_address: xml[i].getAttribute("display_name"),
+                address_components: []
+            }
+/*
+            var child = xml[i].childNodes;
+            for (var j = child.length; j--;) {
+                var n = child[j].tagName;
+                if (n == 'house_number') {
+                    o.address_components.unshift({
+                        "long_name" : child[j].textContent,
+                        "short_name" : child[j].textContent,
+                        "types" : [ "street_number", n ]
+                    });
+                }
+                if (n == 'road') {
+                    o.address_components.unshift({
+                        "long_name" : child[j].textContent,
+                        "short_name" : child[j].textContent,
+                        "types" : [ "route", n ]
+                    });
+                }
+                if (n == 'village') {
+                    o.address_components.unshift({
+                        "long_name" : child[j].textContent,
+                        "short_name" : child[j].textContent,
+                        "types" : [ "locality", "political", n ]
+                    });
+                }
+            }
+*/
+            results.push(o);
+        }
+        callback(results, tablacus.maps.GeocoderStatus.OK);
+    }
+    xhr.open("GET", url, true);
+    xhr.send(null);
 };
 
 (function ()
@@ -271,11 +273,18 @@ tablacus =
     }
     if (!loaded) {
         var head = document.getElementsByTagName("head")[0];
-        el = document.createElement("script");
-        el.async = true;
-        el.type = "text/javascript";
-        el.src = tablacus.settings.leafletjs;
-        head.appendChild(el);
+        if (tablacus.settings.callback) {
+            el = document.createElement("script");
+            el.async = true;
+            el.type = "text/javascript";
+            el.src = tablacus.settings.leafletjs;
+            head.appendChild(el);
+        } else {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", tablacus.settings.leafletjs, false);
+            xhr.send(null);
+            new Function(xhr.responseText)();
+        }
         el = document.createElement("link");
         el.rel = "stylesheet";
         el.href = tablacus.settings.leafletcss;
