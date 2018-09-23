@@ -20,7 +20,7 @@ function initMap() {
     });
 }
 </script>
-<script async src="https://unpkg.com/tablacusmapsapi@0.0.8/tablacusmapsapi.js?callback=initMap&alias=google"></script>
+<script async src="https://unpkg.com/tablacusmapsapi@0.0.9/tablacusmapsapi.js?callback=initMap&alias=google"></script>
 
 <div id="map" style="width: 100%; height: 400px"></div>
 ```
