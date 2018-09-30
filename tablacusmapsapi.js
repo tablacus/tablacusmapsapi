@@ -1,4 +1,4 @@
-// Tablacus Maps API
+// Tablacus Maps API @0.1.1
 
 tablacus =
 {
@@ -14,13 +14,32 @@ tablacus =
     maps:
     {
         MapTypeId: {},
+        MapTypeControlStyle: {},
+        Animation: {},
+        ControlPosition: {
+            TOP_LEFT: 'topleft',
+            LEFT_TOP: 'topleft',
+            TOP_RIGHT: 'topright',
+            RIGHT_TOP: 'topright',
+            BOTTOM_LEFT: 'bottomleft',
+            LEFT_BOTTOM: 'bottomleft',
+            BOTTOM_RIGHT:'bottomright',
+            RIGHT_BOTTOM: 'bottomright',
+            TOP_CENTER: 'topleft',
+            BOTTOM_CENTER:'bottomleft',
+            LEFT_CENTER: 'topleft',
+            RIGHT_CENTER: 'topright',
+        },
+    
         event: {
             addListener: function (o, en, fn)
             {
-                o.$.on(en, function (e)
+                o.$.on(tablacus.maps.event.alias[en] || en, function (e)
                 {
-                    e.latLng = new tablacus.maps.LatLng(e.latlng.lat, e.latlng.lng);
-                    fn(e);
+                    if (e.latlng) {
+                        e.latLng = new tablacus.maps.LatLng(e.latlng.lat, e.latlng.lng);
+                    }
+                    fn.call(o, e);
                 });
             },
 
@@ -30,123 +49,135 @@ tablacus =
                 evt.initEvent(en, true, true);
                 return !o.el.dispatchEvent(evt);    
             },
+
+            addDomListener: function (o, en, fn, b)
+            {
+                o.addEventListener(en, fn, b);
+            },
+
+            alias: { zoom_changed: 'zoom' }
         },
 
-        LatLng: function (lat, lng)
+        LatLng: function (lat, lng, nNowrap)
         {
-            this[0] = lat;
-            this[1] = lng;
+            this.$ = L.latLng(lat, lng);
+            if (!nNowrap) {
+                this.$.wrap();
+            }
         },
 
         LLatLng: function (latlng)
         {
             if (latlng) {
-                return [/function/.test(latlng.lat) ? latlng.lat() : latlng.lat, /function/.test(latlng.lng) ? latlng.lng() : latlng.lng];
+                return [/function/.test(typeof latlng.lat) ? latlng.lat() : latlng.lat, /function/.test(typeof latlng.lng) ? latlng.lng() : latlng.lng];
             }
         },
 
-        LatLngs: function (latlngs)
+        LBounds: function (bounds)
+        {
+            return bounds.$ || [[bounds.south, bounds.west], [bounds.north, bounds.east]];
+        },
+
+        LatLngs: function (latlngs, callback)
         {
             this.$ = latlngs;
+            this.callback = callback;
         },
 
         Map: function (el, opt)
         {
             this.opt = {};
-            for (var i in opt) {
-                this.opt[i] = opt[i];
-            }
-            if (opt.scrollWheelZoom === undefined) {
-                this.opt.scrollWheelZoom = false;
-            }
-            if (opt.tap === undefined) {
-                this.opt.tap = false;
-            }
-            if (opt.dragging === undefined) {
-                this.opt.dragging = window.ontouchstart !== null;
-            }
-            this.opt.center = tablacus.maps.LLatLng(opt.center);
-            this.$ = L.map(el, this.opt);
+            this.setOptions(opt);
+            this.$ = L.map(el, this.opt).setMaxZoom(18);
             this.el = el;
             L.tileLayer(tablacus.settings.tilelayer, { attribution: tablacus.settings.attribution }
             ).addTo(this.$);
+            this.setOptions(opt);
+            this.mapTypes = {
+                set: function (n, o) {
+                    tablacus.maps.MapTypeId[n] = o;
+                }
+            }
+            this.controls = {};
+            for (var n in tablacus.maps.ControlPosition) {
+                this.controls[tablacus.maps.ControlPosition[n]] = [];
+            }
+            this.data = {
+                setStyle: function (fn) {},
+                addGeoJson: function (cities) {}
+            };
         },
 
         Marker: function (opt)
         {
-            this.map = opt.map.$;
-            this.$ = L.marker();
-            this.opt = {};
-            for (var i in opt) {
-                this.opt[i] = opt[i];
+            this.initOptions("Marker", opt);
+            this.$ = L.marker(this.opt.position || [0, 0], this.opt);
+            this.icon = {};
+            if (opt) {
+                this.setMap(opt.map);
+                this.setOptions(opt);
             }
-            if (opt.title) {
-                this.$.bindTooltip(opt.title);
-            }
-            if (opt.icon) {
-                var el = new Image();
-                var $ = this.$;
-                el.onload = function ()
-                {
-                    $.setIcon(L.icon({
-                        iconUrl: opt.icon,
-                        iconSize: [el.naturalWidth, el.naturalHeight],
-                        iconAnchor: [el.naturalWidth / 2, el.naturalHeight],
-                        popupAnchor: [0,  -el.naturalHeight],
-                        tooltipAnchor: [el.naturalWidth / 2, -el.naturalHeight / 2]
-                    }));
-                }
-                el.src = opt.icon;
-            }
-            this.setPosition(opt.position);
         },
 
         InfoWindow: function (opt)
         {
-            this.$ = L.popup().setContent(opt.content);
-            if (opt.position) {
-                this.$.setLatLng(tablacus.maps.LLatLng(opt.position));
-            }
+            this.initOptions("InfoWindow", opt);
+            this.$ = L.popup(opt);
+            this.setOptions(opt);
         },
 
         Polyline: function (opt)
         {
-            this.map = opt.map.$;
-            var latlngs = [];
-            for (var i = 0; i < opt.path.length; i++) {
-                latlngs.push(tablacus.maps.LLatLng(opt.path[i]));
+            this.initOptions("Polyline", opt);
+            this.$ = L.polyline([]);
+            if (opt) {
+                this.setMap(opt.map);
+                this.setOptions(opt);
             }
-            this.$ = L.polyline(latlngs, opt).addTo(opt.map.$);
         },
 
         Polygon: function (opt)
         {
-            this.map = opt.map.$;
-            var latlngs = [];
-            for (var i = 0; i < opt.paths.length; i++) {
-                latlngs.push(tablacus.maps.LLatLng(opt.paths[i]));
+            this.initOptions("Polygon", opt);
+            this.$ = L.polygon([]);
+            if (opt) {
+                this.setMap(opt.map);
+                this.setOptions(opt);
             }
-            this.$ = L.polygon(latlngs, opt).addTo(opt.map.$);
         },
 
         Circle: function (opt)
         {
-            this.map = opt.map.$;
-            this.$ = L.circle(tablacus.maps.LLatLng(opt.center), opt).addTo(this.map);
+            this.initOptions("Circle", opt);
+            this.$ = L.circle(this.opt.center || [0, 0], this.opt);
+            if (opt) {
+                this.setMap(opt.map);
+            }
         },
 
         Rectangle: function (opt)
         {
-            this.map = opt.map.$;
-            this.$ = L.rectangle(opt.bounds.$, opt).addTo(this.map);
+            this.initOptions("Rectangle", opt);
+            this.$ = L.rectangle(this.opt.bounds || [[0,0], [0,0]], this.opt);
+            if (opt) {
+                this.setMap(opt.map);
+            }
         },
 
-        LatLngBounds: function ()
+        LatLngBounds: function (o)
         {
-            this.$ = [];
-            for (var i = 0; i < arguments.length; i++) {
-                this.$.push(tablacus.maps.LLatLng(arguments[i]));
+            if (o.getNorth) {
+                this.$ = o;
+                return;
             }
+            this.$ = L.latLngBounds();
+            for (var i = 0; i < arguments.length; i++) {
+                this.$.extend(tablacus.maps.LLatLng(arguments[i]));
+            }
+        },
+
+        ImageMapType: function (opt)
+        {
         },
 
         Geocoder: function () {},
@@ -161,12 +192,187 @@ tablacus =
             ERROR: "ERROR"            
         },
 
+        layer: {
+            getVisible: function ()
+            {
+                return this.map && this.map.$ ? this.map.$.hasLayer(this.$) : false;
+            },
+        
+            setVisible: function (b)
+            {
+                if (this.map && this.map.$ && b !== undefined && b != this.getVisible()) {
+                    if (b) {
+                        this.map.$.addLayer(this.$);
+                    } else {
+                        this.map.$.removeLayer(this.$);
+                    }
+                }
+            },
+        
+            setMap: function (map)
+            {
+                if (this.map && this.map.$) {
+                    this.map.$.removeLayer(this.$);
+                }
+                this.map = map;
+                if (map && map.$) {
+                    this.setVisible(true);
+                }
+            },
+
+            addListener: function (en, fn)
+            {
+                tablacus.maps.event.addListener(this, en, fn);
+            },
+
+            initOptions: function (mode, opt)
+            {
+                if (!this.opt) {
+                    this.opt = {};
+                }
+                if (!opt) {
+                    return;
+                }
+                var o = tablacus.maps.alias[mode];
+                for (var n in o) {
+                    if (opt[n] !== undefined) {
+                        var s = o[n] || n;
+                        var res = tablacus.maps.alias.re.exec(s);
+                        if (res) {
+                            if (res[1] == "!") {
+                                this.opt[res[2]] = !opt[n];
+                            } else if (res[1] == "*") {
+                                this.opt[res[2]] = tablacus.maps.LLatLng(opt[n]);
+                            } else if (res[1] == "#") {
+                                this.opt[res[2]] = tablacus.maps.LBounds(opt[n]);
+                            }
+                        } else {
+                            this.opt[s] = opt[n];
+                        }
+                    }
+                }
+            }
+        },
+
+        array: {
+            forEach: function (fn)
+            {
+                for (var i = 0; i < this.$.length; i++) {
+                    fn(new tablacus.maps.LatLng(this.$[i].lat, this.$[i].lng));
+                }
+            },
+        
+            push: function (v)
+            {
+                this.$.push(v);
+                if (this.callback) {
+                    this.callback.notify.call(this.callback, this);
+                }
+            },
+        
+            getAt: function (i)
+            {
+                return new tablacus.maps.LatLng(this.$[i].lat, this.$[i].lng);
+            },
+
+            getLength: function ()
+            {
+                return this.$.length;
+            }
+        },
+
         callback: function ()
         {
-            if (window.L && /object|function/i.test(typeof window[tablacus.settings.callback])) {
-                return window[tablacus.settings.callback]();
+            if (window.L) {
+                tablacus.maps.Point = L.Point;
+                tablacus.maps.Size = L.Point;
+                if (/object|function/i.test(typeof window[tablacus.settings.callback])) {
+                    return window[tablacus.settings.callback]();
+                }
+            } else {
+                setTimeout(tablacus.maps.callback, 500);
             }
-            setTimeout(tablacus.maps.callback, 500);
+        },
+
+        alias: {
+            re: /^([!\*#$])(.*)/,
+
+            Map: {
+                navigationControl: "zoomControl",
+                keyboardShortcuts: "keyboard",
+                draggable: "dragging",
+                disableDoubleClickZoom: "!doubleClickZoom",
+                scrollwheel: "scrollWheelZoom",
+                disableDefaultUI: "!zoomControl"
+            },
+
+            Marker: {
+                position: "*position",
+                zoom: "zoom",
+                draggable: "draggable",
+                zIndex: "zIndexOffset"
+            },
+
+            InfoWindow: {
+                disableAutoPan: "!autoPan",
+                maxWidth: "maxWidth",
+                minWidth: "minWidth",
+                pixelOffset: "offset"
+            },
+
+            Polyline: {
+                strokeColor: 'color',
+                strokeOpacity: 'opacity',
+                strokeWeight: 'weight'
+            },
+
+            Polygon: {
+                strokeColor: "color",
+                strokeOpacity: "opacity",
+                strokeWeight: "weight",
+                fillColor: "fillColor",
+                fillOpacity: "fillOpacity"
+            },
+
+            Circle: {
+                center: "*center",
+                radius: "radius",
+                strokeColor: "color",
+                strokeOpacity: "opacity",
+                strokeWeight: "weight",
+                fillColor: "fillColor",
+                fillOpacity: "fillOpacity"
+            },
+
+            Rectangle: {
+                bounds: "#bounds",
+                strokeColor: "color",
+                strokeOpacity: "opacity",
+                strokeWeight: "weight",
+                fillColor: "fillColor",
+                fillOpacity: "fillOpacity"
+            },
+
+            set: function (name, opt, $)
+            {
+                var o = tablacus.maps.alias[name];
+                for (var n in o) {
+                    if (opt[n] !== undefined) {
+                        var s = o[n] || n;
+                        var res = tablacus.maps.alias.re.exec(s);
+                        if (res) {
+                            if (res[1] == "!") {
+                                $.options[res[2]] = !opt[n];
+                            }
+                        } else {
+                            $.options[s] = opt[n];
+                        }
+                    }
+                }
+                if (opt.map && this.setMap) {
+                    this.setMap(opt.map);
+                }
+            }
         }
     }
 };
@@ -174,26 +380,44 @@ tablacus =
 tablacus.maps.LatLng.prototype = {
     lat: function ()
     {
-        return this[0];
+        return this.$.lat;
     },
 
     lng: function ()
     {
-        return this[1];
+        return this.$.lng;
+    },
+
+    equals: function (latlng)
+    {
+        return this.$.equals(latlng.$);
+    },
+
+    toString: function ()
+    {
+        return "(" + this.lat() + ", " + this.lng() + ")"; 
     }
 }
 
 tablacus.maps.Map.prototype = {
     fitBounds: function (bounds)
     {
-        this.$.fitBounds(bounds.$);
+        this.$.fitBounds(tablacus.maps.LBounds(bounds));
     },
 
-    setCenter: function (latlng)
+    setCenter: function (latlng, zoom)
     {
         try {
             this.$.panTo(tablacus.maps.LLatLng(latlng));
         } catch (e) {}
+        if (zoom !== undefined) {
+            this.setZoom(zoom);
+        }
+    },
+
+    getCenter: function ()
+    {
+        return this.$.getCenter();
     },
 
     setZoom: function (zoom)
@@ -208,13 +432,68 @@ tablacus.maps.Map.prototype = {
 
     panTo: function (latlng)
     {
-        try {
-            this.$.panTo(tablacus.maps.LLatLng(latlng));
-        } catch (e) {}
+        this.$.panTo(tablacus.maps.LLatLng(latlng));
+    },
+
+    panBy: function (x, y)
+    {
+        this.$.panBy([x, y]);
+    },
+
+    getBounds: function ()
+    {
+        return new tablacus.maps.LatLngBounds(this.$.getBounds());
     },
 
     setMapTypeId: function (id)
     {
+    },
+
+    setOptions: function (opt)
+    {
+        for (var n in opt) {
+            var s = tablacus.maps.alias.Map[n] || n;
+            var res = tablacus.maps.alias.re.exec(s);
+            if (res) {
+                if (res[1] == "!") {
+                    this.opt[res[1]] = !opt[n];
+                }
+            } else {
+                this.opt[s] = opt[n];
+            }
+        }
+        if (opt.center) {
+            this.opt.center = tablacus.maps.LLatLng(opt.center);
+            this.setCenter(this.opt.center);
+        }
+        if (this.opt.tap === undefined) {
+            this.opt.tap = false;
+        }
+        if (this.$) {
+            if (this.opt.zoomControl !== false) {
+                this.$.zoomControl.setPosition(this.opt.zoomControlOptions && this.opt.zoomControlOptions.position || this.opt.navigationControlOptions && this.opt.navigationControlOptions.position || "bottomright");
+            }
+            var o = {
+                boxZoom: true,
+                doubleClickZoom: true,
+                keyboard: true,
+                scrollWheelZoom: false,
+                dragging: window.ontouchstart !== null,
+                touchZoom: true
+            };
+            for (var n in o) {
+                if (this.opt[n] === undefined ? o[n] : this.opt[n]) {
+                    this.$[n].enable();
+                } else {
+                    this.$[n].disable();
+                }
+            }
+        }
+    },
+
+    addListener: function (en, fn)
+    {
+        tablacus.maps.event.addListener(this, en, fn);
     }
 };
 
@@ -223,10 +502,12 @@ tablacus.maps.Marker.prototype = {
     {
         if (latlng) {
             this.$.setLatLng(tablacus.maps.LLatLng(latlng));
-            if (!this.getVisible() && this.opt.visible !== false) {
-                this.setVisible(true);
-            }
         }
+    },
+
+    getVisible: function ()
+    {
+        return this.map && this.map.$ ? this.map.$.hasLayer(this.$) : false;
     },
 
     getPosition: function ()
@@ -235,65 +516,253 @@ tablacus.maps.Marker.prototype = {
         return new tablacus.maps.LatLng(latlng[0], latlng[1]);
     },
 
-    getVisible: function ()
+    get: function (n)
     {
-        return this.map.hasLayer(this.$);
+        return this[n];
     },
 
-    setVisible: function (b)
+    getAnimation: function () {
+        return null;
+    },
+
+    setAnimation: function () {},
+
+    setOptions: function (opt)
     {
-        if (b != this.getVisible()) {
-            this.opt.visible = b;
-            if (b) {
-                this.map.addLayer(this.$);
-            } else {
-                this.map.removeLayer(this.$);
-            }
+        if (!opt) {
+            return;
         }
-    }
+        if (opt.title) {
+            this.$.bindTooltip(opt.title);
+        }
+        if (opt.icon) {
+            this.setIcon(opt.icon, "icon");
+        }
+        if (opt.shadow) {
+            this.setIcon(opt.shadow, "shadow");
+        }
+        if (opt.label) {
+            this.icon.html = '<div class="tablacus-pin"><span>' + opt.label + '</span></div>';
+            this.icon.className = "tablacus-label";
+            this.icon.iconAnchor = [13, 60],
+            this.icon.popupAnchor = [0, -40],
+            this.icon.tooltipAnchor = [14, -25]
+            this.$.setIcon(L.divIcon(this.icon));
+        }
+        tablacus.maps.alias.set("Marker", opt, this.$);
+        this.setPosition(opt.position);
+        this.setVisible(opt.visible);
+    },
+
+    setIcon: function (icon, mode)
+    {
+        var o = {};
+        if (/object/.test(typeof icon)) {
+            o = icon; 
+            icon = o.url;
+        }
+        this.icon.iconUrl = icon;
+        if (o.size && o.size.x) {
+            this.setIcon2(o, mode);
+            return;
+        }
+        var el = new Image();
+        el.p = this;
+        el.onload = function ()
+        {
+            o.size = new tablacus.maps.Size(this.naturalWidth, this.naturalHeight);
+            this.p.setIcon2(o, mode);         
+        }
+        el.src = icon;
+    },
+
+    setIcon2: function (o, mode)
+    {
+        if (!o.anchor) {
+            o.anchor = new tablacus.maps.Point(o.size.x / 2, o.size.y)
+        }
+        this.icon[mode + "Size"] = [o.size.x, o.size.y];
+        this.icon[mode + "Anchor"] = [o.anchor.x, o.anchor.y];
+        if (mode == "icon") {
+            this.icon.popupAnchor = [0,  -o.size.y];
+            this.icon.tooltipAnchor = [o.size.x / 2, -o.size.y / 2];
+        }
+        this.$.setIcon(L.icon(this.icon));
+    },
 };
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.Marker.prototype[n] = tablacus.maps.layer[n];
+}
 
 tablacus.maps.InfoWindow.prototype = {
     open: function (map, opt)
     {
+        this.map = map;
         if (opt) {
-            opt.$.bindPopup(this.$).openPopup();
+            if (this.bind) {
+                this.close();
+            }
+            this.bind = opt.$.bindPopup(this.$);
+            this.setOptions(opt);
+            this.bind.openPopup();
             return;
         }
-        map.$.openPopup(this.$);
+        if (map && map.$) {
+            this.$.openOn(map.$);
+        }
     },
 
     close: function ()
     {
-        map.$.closePopup(this.$);
+        if (this.bind) {
+            this.bind.unbindPopup();
+            delete this.bind;
+        }
+        if (this.map) {
+            this.map.$.closePopup(this.$);
+        }
+    },
+
+    setPosition: function (latlng)
+    {
+        this.$.setLatLng(tablacus.maps.LLatLng(latlng));
+    },
+
+    setContent: function (content)
+    {
+        this.$.setContent(content);
+    },
+
+    setOptions: function (opt)
+    {
+        this.$.options.autoClose = false;
+        this.$.options.closeOnClick = false;
+        if (!opt) {
+            return;
+        }
+        if (opt.content) {
+            this.$.setContent(opt.content);
+        }
+        if (opt.position) {
+            this.setPosition(opt.position);
+        }
+        tablacus.maps.alias.set("InfoWindow", opt, this.$);
+    },
+
+    addListener: function (en, fn)
+    {
+        tablacus.maps.event.addListener(this, en, fn);
     }
 };
-
-tablacus.maps.Polyline.prototype.getPath = function ()
-{
-    return new tablacus.maps.LatLngs(this.$.getLatLngs());
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.InfoWindow.prototype[n] = tablacus.maps.layer[n];
 }
 
-tablacus.maps.Polygon.prototype.getPaths = function ()
-{
-    var r = [];
-    var o = this.$.getLatLngs();
-    for (var i = 0; i < o.length; i++) {
-        r.push(new tablacus.maps.LatLngs(o[i]));
+tablacus.maps.Polyline.prototype = {
+    getPath: function ()
+    {
+        return new tablacus.maps.LatLngs(this.$.getLatLngs(), this);
+    },
+
+    setOptions: function (opt)
+    {
+        if (opt.path) {
+            var latlngs = [];
+            for (var i = 0; i < opt.path.length; i++) {
+                latlngs.push(tablacus.maps.LLatLng(opt.path[i], true));
+            }
+            this.$.setLatLngs(latlngs);
+        }
+        tablacus.maps.alias.set("Polyline", opt, this.$);
+    },
+
+    notify: function (latlngs)
+    {
+        this.setOptions({ path: latlngs.$ });
     }
-    return r;
+}
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.Polyline.prototype[n] = tablacus.maps.layer[n];
 }
 
-tablacus.maps.LatLngs.prototype.forEach = function (fn)
-{
-    for (var i = 0; i < this.$.length; i++) {
-        fn(new tablacus.maps.LatLng(this.$[i].lat, this.$[i].lng));
+tablacus.maps.Polygon.prototype = {
+    getPath: function ()
+    {
+        return new tablacus.maps.LatLngs(this.$.getLatLngs()[0], this);
+    },
+
+    getPaths: function ()
+    {
+        var r = [];
+        var o = this.$.getLatLngs();
+        for (var i = 0; i < o.length; i++) {
+            r.push(new tablacus.maps.LatLngs(o[i]));
+        }
+        return r;
+    },
+
+    setOptions: function (opt)
+    {
+        if (opt.paths) {
+            var latlngs = [];
+            for (var i = 0; i < opt.paths.length; i++) {
+                var o = opt.paths[i];
+                if (o.length) {
+                    latlngs[i] = [];
+                    for (j = 0; j < o.length; j++) {
+                        latlngs[i].push(tablacus.maps.LLatLng(o[j]));
+                    }
+                    continue;
+                } else {
+                    latlngs.push(tablacus.maps.LLatLng(o));
+                }
+            }
+            this.$.setLatLngs(latlngs);
+        }
+        tablacus.maps.alias.set("Polygon", opt, this.$);
     }
-};
+}
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.Polygon.prototype[n] = tablacus.maps.layer[n];
+}
+
+tablacus.maps.Circle.prototype = {
+    setOptions: function (opt)
+    {
+        if (opt.center) {
+            this.$.setLatLng(tablacus.maps.LLatLng(opt.center));
+        }
+        tablacus.maps.alias.set("Circle", opt, this.$);
+    }
+}
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.Circle.prototype[n] = tablacus.maps.layer[n];
+}
+
+tablacus.maps.Rectangle.prototype = {
+    setOptions: function (opt)
+    {
+        if (opt.bounds) {
+            this.$.setBounds(tablacus.maps.LBounds(opt.bounds))
+        }
+        tablacus.maps.alias.set("Rectangle", opt, this.$);
+        if (opt.map) {
+            this.setMap(opt.map);
+        }
+}
+}
+for (var n in tablacus.maps.layer) {
+    tablacus.maps.Rectangle.prototype[n] = tablacus.maps.layer[n];
+}
+
+
+for (var n in tablacus.maps.array) {
+    tablacus.maps.LatLngs.prototype[n] = tablacus.maps.array[n];
+}
 
 tablacus.maps.LatLngBounds.prototype.extend = function (latlng)
 {
-    this.$.push(tablacus.maps.LLatLng(latlng));
+    this.$.extend(tablacus.maps.LLatLng(latlng));
 };
 
 tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
@@ -370,7 +839,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         window[tablacus.settings.alias] = tablacus;
     }
     if (loaded) {
-        tablacus.settings.callback && tablacus.maps.callback();
+        tablacus.maps.callback();
     } else {
         var head = document.getElementsByTagName("head")[0];
         el = document.createElement("link");
@@ -379,17 +848,24 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         el.type = "text/css";
 		el.onload = function ()
 		{
-			var css = document.styleSheets.item(0);
-	        css.insertRule('.leaflet-zoom-box { z-index: 280 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-pane { z-index: 240 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-overlay-pane { z-index: 240 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-shadow-pane { z-index: 250 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-marker-pane { z-index: 260 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-tooltip-pane { z-index: 265 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-popup-pane { z-index: 270 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-control { z-index: 280 !important; }', css.cssRules.length);
-	        css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 299 !important; }', css.cssRules.length);
-	        css.insertRule('.ai1ec-gmap-link { z-index: 299 !important; }', css.cssRules.length);
+            var css = document.styleSheets.item(0);
+            try {
+                css.insertRule('.leaflet-zoom-box { z-index: 280 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-pane { z-index: 1 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-tile-pane    { z-index: 0 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-overlay-pane { z-index: 1 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-shadow-pane { z-index: 2 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-marker-pane { z-index: 3 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-tooltip-pane { z-index: 4 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-popup-pane { z-index: 5 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-control { z-index: 6 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 7 !important; }', css.cssRules.length);
+                css.insertRule('.ai1ec-gmap-link { z-index: 7 !important; }', css.cssRules.length);
+                css.insertRule('.tablacus-label { position: relative; width: 30px; height: 45px }', css.cssRules.length);
+                css.insertRule('.tablacus-pin { background-color: #4294CF; width: 28px; height: 28px; text-align: center; vertical-align: middle; border-radius: 20px; color: white; margin: 20px auto; }', css.cssRules.length);
+                css.insertRule('.tablacus-pin:after { position: absolute; content: ""; border-top: 15px solid #4294CF; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; top: 46px; left: 9px; }', css.cssRules.length); 
+                css.insertRule('.tablacus-pin span { line-height: 25px; text-align: center; vertical-align: central; }', css.cssRules.length);
+            } catch (e) {}
         };
         head.appendChild(el);
         if (tablacus.settings.callback) {
@@ -404,7 +880,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
             xhr.open("GET", tablacus.settings.leafletjs, false);
             xhr.send(null);
             new Function(xhr.responseText)();
-            tablacus.settings.callback && tablacus.maps.callback();
+            tablacus.maps.callback();
         }
     }
 })();

@@ -4,6 +4,20 @@ Yet another Maps API with leaflet (OpenStreetMap)
 
 ## Usage
 
+**Latest version**
+
+```html
+<script async defer src="https://unpkg.com/tablacusmapsapi/tablacusmapsapi.js?alias=google&...." ></script>
+```
+
+**Specify version**  ex: _0.1.1_
+
+```html
+<script async defer src="https://unpkg.com/tablacusmapsapi@0.1.1/tablacusmapsapi.js?alias=google&...." ></script>
+```
+
+### [Some exsamples](https://tablacus.github.io/maps/)
+
 ### [Sample](http://tmapapi.netlify.com/sample.html)
 
 ```js
@@ -142,7 +156,7 @@ function toggle(s)
     o.style.display = /none/i.test(o.style.display) ? "block" : "none"; 
 }
 </script>
-<script async src="https://unpkg.com/tablacusmapsapi@0.1.0/tablacusmapsapi.js?callback=initMap&alias=google"></script>
+<script async src="https://unpkg.com/tablacusmapsapi/tablacusmapsapi.js?callback=initMap&alias=google"></script>
 
 <div id="map" style="width: calc(100% - 20em); height: 100%; float: left"></div>
 <form name="F">
