@@ -1,4 +1,4 @@
-// Tablacus Maps API @0.1.1
+// Tablacus Maps API @0.1.2
 
 tablacus =
 {
@@ -37,7 +37,7 @@ tablacus =
                 o.$.on(tablacus.maps.event.alias[en] || en, function (e)
                 {
                     if (e.latlng) {
-                        e.latLng = new tablacus.maps.LatLng(e.latlng.lat, e.latlng.lng);
+                        e.latLng = new tablacus.maps.LatLng(e.latlng);
                     }
                     fn.call(o, e);
                 });
@@ -55,27 +55,22 @@ tablacus =
                 o.addEventListener(en, fn, b);
             },
 
-            alias: { zoom_changed: 'zoom' }
-        },
-
-        LatLng: function (lat, lng, nNowrap)
-        {
-            this.$ = L.latLng(lat, lng);
-            if (!nNowrap) {
-                this.$.wrap();
+            alias: {
+                center_changed: "move",
+                zoom_changed: "zoom"
             }
         },
 
-        LLatLng: function (latlng)
+        LatLng: function (lat, lng, noWrap)
         {
-            if (latlng) {
-                return [/function/.test(typeof latlng.lat) ? latlng.lat() : latlng.lat, /function/.test(typeof latlng.lng) ? latlng.lng() : latlng.lng];
+            if (arguments.length > 1) {
+                this.$ = L.latLng(lat, lng);
+                if (!noWrap) {
+                    this.$ = this.$.wrap();
+                }
+                return;
             }
-        },
-
-        LBounds: function (bounds)
-        {
-            return bounds.$ || [[bounds.south, bounds.west], [bounds.north, bounds.east]];
+            this.$ = lat;
         },
 
         LatLngs: function (latlngs, callback)
@@ -88,7 +83,7 @@ tablacus =
         {
             this.opt = {};
             this.setOptions(opt);
-            this.$ = L.map(el, this.opt).setMaxZoom(18);
+            this.$ = L.map(el, this.opt);
             this.el = el;
             L.tileLayer(tablacus.settings.tilelayer, { attribution: tablacus.settings.attribution }
             ).addTo(this.$);
@@ -166,7 +161,7 @@ tablacus =
 
         LatLngBounds: function (o)
         {
-            if (o.getNorth) {
+            if (o && o.getNorth) {
                 this.$ = o;
                 return;
             }
@@ -174,6 +169,15 @@ tablacus =
             for (var i = 0; i < arguments.length; i++) {
                 this.$.extend(tablacus.maps.LLatLng(arguments[i]));
             }
+        },
+
+        MarkerImage : function (url, size, origin, anchor, scaledSize)
+        {
+            this.url = url;
+            this.size = scaledSize || size;
+            this.origin = origin;
+            this.anchor = anchor;
+            this.scaledSize = scaledSize;
         },
 
         ImageMapType: function (opt)
@@ -190,6 +194,48 @@ tablacus =
             INVALID_REQUEST: "INVALID_REQUEST",
             ZERO_RESULTS: "ZERO_RESULTS",
             ERROR: "ERROR"            
+        },
+
+        LLatLng: function (latlng)
+        {
+            if (latlng) {
+                return [/function/.test(typeof latlng.lat) ? latlng.lat() : latlng.lat || latlng[0] || 0, /function/.test(typeof latlng.lng) ? latlng.lng() : latlng.lng || latlng[1] || 0];
+            }
+        },
+
+        LLatLngs: function (latlngs, idl)
+        {
+            var latlng, latlng1, d, r = [];
+            if (idl) {
+                latlng1 = tablacus.maps.LLatLng(idl);
+            }
+            for (var i = 0; i < latlngs.length; i++) {
+                if (latlngs[i].length && /object/i.test(typeof latlngs[i][0])) {
+                    latlng = tablacus.maps.LLatLngs(latlngs[i], idl);
+                } else {
+                    latlng = tablacus.maps.LLatLng(latlngs[i]);
+                    if (latlng1) {
+                        for (dog = 9; dog--;) {
+                            d = latlng1[1] - latlng[1];
+                            if (d > 180) {
+                                latlng[1] += 360;
+                            } else if (d < -180) {
+                                latlng[1] -= 360;
+                            } else {
+                                break;
+                            }
+                        }
+                    }
+                    latlng1 = latlng;
+                }
+                r.push(latlng);
+            }
+            return r;
+        },
+
+        LBounds: function (bounds)
+        {
+            return bounds.$ || [[bounds.south, bounds.west], [bounds.north, bounds.east]];
         },
 
         layer: {
@@ -209,6 +255,11 @@ tablacus =
                 }
             },
         
+            getMap: function ()
+            {
+                return this.map;
+            },
+
             setMap: function (map)
             {
                 if (this.map && this.map.$) {
@@ -216,6 +267,9 @@ tablacus =
                 }
                 this.map = map;
                 if (map && map.$) {
+                    if (this.mapChanged) {
+                        this.mapChanged();
+                    }
                     this.setVisible(true);
                 }
             },
@@ -258,7 +312,7 @@ tablacus =
             forEach: function (fn)
             {
                 for (var i = 0; i < this.$.length; i++) {
-                    fn(new tablacus.maps.LatLng(this.$[i].lat, this.$[i].lng));
+                    fn(new tablacus.maps.LatLng(this.$[i]));
                 }
             },
         
@@ -272,7 +326,7 @@ tablacus =
         
             getAt: function (i)
             {
-                return new tablacus.maps.LatLng(this.$[i].lat, this.$[i].lng);
+                return new tablacus.maps.LatLng(this.$[i]);
             },
 
             getLength: function ()
@@ -393,9 +447,19 @@ tablacus.maps.LatLng.prototype = {
         return this.$.equals(latlng.$);
     },
 
+    toJSON: function ()
+    {
+        return this.$;
+    },
+
     toString: function ()
     {
         return "(" + this.lat() + ", " + this.lng() + ")"; 
+    },
+
+    toUrlValue: function (i)
+    {
+        return (this.lat().toFixed(i || 6) - 0) + "," + (this.lng().toFixed(i || 6) - 0); 
     }
 }
 
@@ -403,6 +467,40 @@ tablacus.maps.Map.prototype = {
     fitBounds: function (bounds)
     {
         this.$.fitBounds(tablacus.maps.LBounds(bounds));
+    },
+
+    getBounds: function ()
+    {
+        return new tablacus.maps.LatLngBounds(this.$.getBounds());
+    },
+
+    getCenter: function ()
+    {
+        return new tablacus.maps.LatLng(this.$.getCenter());
+    },
+
+    getDiv: function ()
+    {
+        return this.$.getContainer();
+    },
+
+    getMapTypeId: function () {},
+    getStreetView: function () {},
+    getTilt: function () {},
+
+    getZoom: function ()
+    {
+        return this.$.getZoom();
+    },
+
+    panBy: function (x, y)
+    {
+        this.$.panBy([x, y]);
+    },
+
+    panTo: function (latlng)
+    {
+        this.$.panTo(tablacus.maps.LLatLng(latlng));
     },
 
     setCenter: function (latlng, zoom)
@@ -415,40 +513,6 @@ tablacus.maps.Map.prototype = {
         }
     },
 
-    getCenter: function ()
-    {
-        return this.$.getCenter();
-    },
-
-    setZoom: function (zoom)
-    {
-        this.$.setZoom(zoom);
-    },
-
-    getZoom: function ()
-    {
-        return this.$.getZoom();
-    },
-
-    panTo: function (latlng)
-    {
-        this.$.panTo(tablacus.maps.LLatLng(latlng));
-    },
-
-    panBy: function (x, y)
-    {
-        this.$.panBy([x, y]);
-    },
-
-    getBounds: function ()
-    {
-        return new tablacus.maps.LatLngBounds(this.$.getBounds());
-    },
-
-    setMapTypeId: function (id)
-    {
-    },
-
     setOptions: function (opt)
     {
         for (var n in opt) {
@@ -456,7 +520,7 @@ tablacus.maps.Map.prototype = {
             var res = tablacus.maps.alias.re.exec(s);
             if (res) {
                 if (res[1] == "!") {
-                    this.opt[res[1]] = !opt[n];
+                    this.opt[res[2]] = !opt[n];
                 }
             } else {
                 this.opt[s] = opt[n];
@@ -491,6 +555,15 @@ tablacus.maps.Map.prototype = {
         }
     },
 
+    setMapTypeId: function (id) {},
+    setStreetView: function () {},
+    setTilt: function () {},
+
+    setZoom: function (zoom)
+    {
+        this.$.setZoom(zoom);
+    },
+
     addListener: function (en, fn)
     {
         tablacus.maps.event.addListener(this, en, fn);
@@ -498,6 +571,16 @@ tablacus.maps.Map.prototype = {
 };
 
 tablacus.maps.Marker.prototype = {
+    get: function (n)
+    {
+        return this[n];
+    },
+
+    getPosition: function ()
+    {
+        return new tablacus.maps.LatLng(this.$.getLatLng());
+    },
+
     setPosition: function (latlng)
     {
         if (latlng) {
@@ -505,27 +588,22 @@ tablacus.maps.Marker.prototype = {
         }
     },
 
-    getVisible: function ()
-    {
-        return this.map && this.map.$ ? this.map.$.hasLayer(this.$) : false;
-    },
-
-    getPosition: function ()
-    {
-        var latlng = this.$.getLatLng(); 
-        return new tablacus.maps.LatLng(latlng[0], latlng[1]);
-    },
-
-    get: function (n)
-    {
-        return this[n];
-    },
-
     getAnimation: function () {
         return null;
     },
 
     setAnimation: function () {},
+
+    getIcon: function ()
+    {
+        return this.icon.$;
+    },
+
+    setIcon: function (icon)
+    {
+        this.icon = {};
+        this.setIcon1(icon, "icon");
+    },
 
     setOptions: function (opt)
     {
@@ -536,10 +614,10 @@ tablacus.maps.Marker.prototype = {
             this.$.bindTooltip(opt.title);
         }
         if (opt.icon) {
-            this.setIcon(opt.icon, "icon");
+            this.setIcon1(opt.icon, "icon");
         }
         if (opt.shadow) {
-            this.setIcon(opt.shadow, "shadow");
+            this.setIcon1(opt.shadow, "shadow");
         }
         if (opt.label) {
             this.icon.html = '<div class="tablacus-pin"><span>' + opt.label + '</span></div>';
@@ -554,14 +632,21 @@ tablacus.maps.Marker.prototype = {
         this.setVisible(opt.visible);
     },
 
-    setIcon: function (icon, mode)
+    setIcon1: function (icon, mode)
     {
+        if (mode == "icon") {
+            this.icon.$ = icon && /object/i.test(typeof icon) ? icon : { url: icon };
+        }
         var o = {};
-        if (/object/.test(typeof icon)) {
+        if (icon && /object/.test(typeof icon)) {
             o = icon; 
             icon = o.url;
         }
         this.icon.iconUrl = icon;
+        if (!icon) {
+            this.$.setIcon(L.Icon.Default.prototype);
+            return;
+        }
         if (o.size && o.size.x) {
             this.setIcon2(o, mode);
             return;
@@ -590,9 +675,6 @@ tablacus.maps.Marker.prototype = {
         this.$.setIcon(L.icon(this.icon));
     },
 };
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.Marker.prototype[n] = tablacus.maps.layer[n];
-}
 
 tablacus.maps.InfoWindow.prototype = {
     open: function (map, opt)
@@ -647,16 +729,8 @@ tablacus.maps.InfoWindow.prototype = {
             this.setPosition(opt.position);
         }
         tablacus.maps.alias.set("InfoWindow", opt, this.$);
-    },
-
-    addListener: function (en, fn)
-    {
-        tablacus.maps.event.addListener(this, en, fn);
     }
 };
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.InfoWindow.prototype[n] = tablacus.maps.layer[n];
-}
 
 tablacus.maps.Polyline.prototype = {
     getPath: function ()
@@ -667,11 +741,7 @@ tablacus.maps.Polyline.prototype = {
     setOptions: function (opt)
     {
         if (opt.path) {
-            var latlngs = [];
-            for (var i = 0; i < opt.path.length; i++) {
-                latlngs.push(tablacus.maps.LLatLng(opt.path[i], true));
-            }
-            this.$.setLatLngs(latlngs);
+            this.$.setLatLngs(tablacus.maps.LLatLngs(opt.path, this.map ? this.map.getCenter() : undefined));
         }
         tablacus.maps.alias.set("Polyline", opt, this.$);
     },
@@ -679,10 +749,12 @@ tablacus.maps.Polyline.prototype = {
     notify: function (latlngs)
     {
         this.setOptions({ path: latlngs.$ });
+    },
+
+    mapChanged: function ()
+    {
+        this.$.setLatLngs(tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter()));
     }
-}
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.Polyline.prototype[n] = tablacus.maps.layer[n];
 }
 
 tablacus.maps.Polygon.prototype = {
@@ -704,26 +776,15 @@ tablacus.maps.Polygon.prototype = {
     setOptions: function (opt)
     {
         if (opt.paths) {
-            var latlngs = [];
-            for (var i = 0; i < opt.paths.length; i++) {
-                var o = opt.paths[i];
-                if (o.length) {
-                    latlngs[i] = [];
-                    for (j = 0; j < o.length; j++) {
-                        latlngs[i].push(tablacus.maps.LLatLng(o[j]));
-                    }
-                    continue;
-                } else {
-                    latlngs.push(tablacus.maps.LLatLng(o));
-                }
-            }
-            this.$.setLatLngs(latlngs);
+            this.$.setLatLngs(tablacus.maps.LLatLngs(opt.paths, this.map ? this.map.getCenter() : undefined));
         }
         tablacus.maps.alias.set("Polygon", opt, this.$);
+    },
+
+    mapChanged: function ()
+    {
+        this.$.setLatLngs(tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter()));
     }
-}
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.Polygon.prototype[n] = tablacus.maps.layer[n];
 }
 
 tablacus.maps.Circle.prototype = {
@@ -734,9 +795,6 @@ tablacus.maps.Circle.prototype = {
         }
         tablacus.maps.alias.set("Circle", opt, this.$);
     }
-}
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.Circle.prototype[n] = tablacus.maps.layer[n];
 }
 
 tablacus.maps.Rectangle.prototype = {
@@ -749,15 +807,7 @@ tablacus.maps.Rectangle.prototype = {
         if (opt.map) {
             this.setMap(opt.map);
         }
-}
-}
-for (var n in tablacus.maps.layer) {
-    tablacus.maps.Rectangle.prototype[n] = tablacus.maps.layer[n];
-}
-
-
-for (var n in tablacus.maps.array) {
-    tablacus.maps.LatLngs.prototype[n] = tablacus.maps.array[n];
+    }
 }
 
 tablacus.maps.LatLngBounds.prototype.extend = function (latlng)
@@ -771,46 +821,19 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
     var xhr = new XMLHttpRequest();
     xhr.onload = function() 
     { 
-        var results = [];
+        var r = [];
         var xml = xhr.responseXML.getElementsByTagName("place");
         for (var i = 0; i < xml.length; i++) {
             var o = { 
                 geometry: {
-                    location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"))
+                    location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"), true)
                 },
                 formatted_address: xml[i].getAttribute("display_name"),
                 address_components: []
             }
-/*
-            var child = xml[i].childNodes;
-            for (var j = child.length; j--;) {
-                var n = child[j].tagName;
-                if (n == 'house_number') {
-                    o.address_components.unshift({
-                        "long_name" : child[j].textContent,
-                        "short_name" : child[j].textContent,
-                        "types" : [ "street_number", n ]
-                    });
-                }
-                if (n == 'road') {
-                    o.address_components.unshift({
-                        "long_name" : child[j].textContent,
-                        "short_name" : child[j].textContent,
-                        "types" : [ "route", n ]
-                    });
-                }
-                if (n == 'village') {
-                    o.address_components.unshift({
-                        "long_name" : child[j].textContent,
-                        "short_name" : child[j].textContent,
-                        "types" : [ "locality", "political", n ]
-                    });
-                }
-            }
-*/
-            results.push(o);
+            r.push(o);
         }
-        callback(results, results.length ? tablacus.maps.GeocoderStatus.OK : tablacus.maps.GeocoderStatus.ZERO_RESULTS);
+        callback(r, r.length ? tablacus.maps.GeocoderStatus.OK : tablacus.maps.GeocoderStatus.ZERO_RESULTS);
     }
     xhr.open("GET", url, true);
     xhr.send(null);
@@ -818,6 +841,20 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
 
 (function ()
 {
+    for (var n in tablacus.maps.layer) {
+        var v = tablacus.maps.layer[n];
+        tablacus.maps.Marker.prototype[n] = v;
+        tablacus.maps.InfoWindow.prototype[n] = v;
+        tablacus.maps.Polyline.prototype[n] = v;
+        tablacus.maps.Polygon.prototype[n] = v;
+        tablacus.maps.Circle.prototype[n] = v;
+        tablacus.maps.Rectangle.prototype[n] = v;
+    }
+    
+    for (var n in tablacus.maps.array) {
+        tablacus.maps.LatLngs.prototype[n] = tablacus.maps.array[n];
+    }
+
     var loaded, query, res, re = /tablacusmapsapi\.(js|php)\?(.*)|tablacusmapsapi\.(js|php)$/;
     var scripts = document.getElementsByTagName('script');
     for (var i in scripts) {
@@ -850,8 +887,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
 		{
             var css = document.styleSheets.item(0);
             try {
-                css.insertRule('.leaflet-zoom-box { z-index: 280 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-pane { z-index: 1 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-pane { z-index: 0 !important; }', css.cssRules.length);
                 css.insertRule('.leaflet-tile-pane    { z-index: 0 !important; }', css.cssRules.length);
                 css.insertRule('.leaflet-overlay-pane { z-index: 1 !important; }', css.cssRules.length);
                 css.insertRule('.leaflet-shadow-pane { z-index: 2 !important; }', css.cssRules.length);
@@ -860,7 +896,6 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
                 css.insertRule('.leaflet-popup-pane { z-index: 5 !important; }', css.cssRules.length);
                 css.insertRule('.leaflet-control { z-index: 6 !important; }', css.cssRules.length);
                 css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 7 !important; }', css.cssRules.length);
-                css.insertRule('.ai1ec-gmap-link { z-index: 7 !important; }', css.cssRules.length);
                 css.insertRule('.tablacus-label { position: relative; width: 30px; height: 45px }', css.cssRules.length);
                 css.insertRule('.tablacus-pin { background-color: #4294CF; width: 28px; height: 28px; text-align: center; vertical-align: middle; border-radius: 20px; color: white; margin: 20px auto; }', css.cssRules.length);
                 css.insertRule('.tablacus-pin:after { position: absolute; content: ""; border-top: 15px solid #4294CF; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; top: 46px; left: 9px; }', css.cssRules.length); 
