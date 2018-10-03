@@ -10,10 +10,10 @@ Yet another Maps API with leaflet (OpenStreetMap)
 <script async defer src="https://unpkg.com/tablacusmapsapi/tablacusmapsapi.js?alias=google&...." ></script>
 ```
 
-**Specify version**  _0.1.2_
+**Specify version**  _0.1.3_
 
 ```html
-<script async defer src="https://unpkg.com/tablacusmapsapi@0.1.2/tablacusmapsapi.js?alias=google&...." ></script>
+<script async defer src="https://unpkg.com/tablacusmapsapi@0.1.3/tablacusmapsapi.js?alias=google&...." ></script>
 ```
 
 ### [Some exsamples](https://tablacus.github.io/maps/)

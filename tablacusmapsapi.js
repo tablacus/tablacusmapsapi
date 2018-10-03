@@ -1,4 +1,4 @@
-// Tablacus Maps API @0.1.2
+// Tablacus Maps API @0.1.3
 
 tablacus =
 {
@@ -8,7 +8,8 @@ tablacus =
         leafletcss: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.css',
         tilelayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        geocoder: 'https://nominatim.openstreetmap.org/search?format=xml&q='
+        geocoder: 'https://nominatim.openstreetmap.org/search?format=xml&addressdetails=0&q=',
+        reverse: 'https://nominatim.openstreetmap.org/reverse?format=xml&lat={lat}&lon={lng}&zoom=18&addressdetails=0'
     },
 
     maps:
@@ -552,6 +553,14 @@ tablacus.maps.Map.prototype = {
                     this.$[n].disable();
                 }
             }
+            if (this.opt.scaleControl) {
+                if (!this.scale) {
+                    this.scale = L.control.scale();
+                }
+                this.scale.addTo(this.$);
+            } else if (this.scale) {
+                this.scale.remove();
+            }
         }
     },
 
@@ -642,8 +651,8 @@ tablacus.maps.Marker.prototype = {
             o = icon; 
             icon = o.url;
         }
-        this.icon.iconUrl = icon;
-        if (!icon) {
+        this.icon[mode + "Url"] = icon;
+        if (!icon && mode == "icon") {
             this.$.setIcon(L.Icon.Default.prototype);
             return;
         }
@@ -817,23 +826,44 @@ tablacus.maps.LatLngBounds.prototype.extend = function (latlng)
 
 tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
 {
-    var url = tablacus.settings.geocoder + encodeURIComponent(opt.address);
-    var xhr = new XMLHttpRequest();
-    xhr.onload = function() 
-    { 
-        var r = [];
-        var xml = xhr.responseXML.getElementsByTagName("place");
-        for (var i = 0; i < xml.length; i++) {
-            var o = { 
-                geometry: {
-                    location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"), true)
-                },
-                formatted_address: xml[i].getAttribute("display_name"),
-                address_components: []
+    var url, xhr = new XMLHttpRequest();
+    if (opt.address) {
+        url = tablacus.settings.geocoder + encodeURIComponent(opt.address);
+        xhr.onload = function() 
+        { 
+            var r = [];
+            var xml = xhr.responseXML.getElementsByTagName("place");
+            for (var i = 0; i < xml.length; i++) {
+                var o = { 
+                    geometry: {
+                        location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"), true)
+                    },
+                    formatted_address: xml[i].getAttribute("display_name"),
+                    address_components: []
+                }
+                r.push(o);
             }
-            r.push(o);
+            callback(r, r.length ? tablacus.maps.GeocoderStatus.OK : tablacus.maps.GeocoderStatus.ZERO_RESULTS);
         }
-        callback(r, r.length ? tablacus.maps.GeocoderStatus.OK : tablacus.maps.GeocoderStatus.ZERO_RESULTS);
+    } else if (opt.location) {
+        var latlng = tablacus.maps.LLatLng(opt.location);
+        url = tablacus.settings.reverse.replace(/{lat}/g, encodeURIComponent(latlng[0])).replace(/{lng}/g, encodeURIComponent(latlng[1]));
+        xhr.onload = function() 
+        { 
+            var r = [];
+            var xml = xhr.responseXML.getElementsByTagName("result");
+            for (var i = 0; i < xml.length; i++) {
+                var o = { 
+                    geometry: {
+                        location: new tablacus.maps.LatLng(xml[i].getAttribute("lat"), xml[i].getAttribute("lon"), true)
+                    },
+                    formatted_address: xml[i].textContent || xml[i].text,
+                    address_components: []
+                }
+                r.push(o);
+            }
+            callback(r, r.length ? tablacus.maps.GeocoderStatus.OK : tablacus.maps.GeocoderStatus.ZERO_RESULTS);
+        }
     }
     xhr.open("GET", url, true);
     xhr.send(null);
