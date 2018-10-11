@@ -1,4 +1,4 @@
-// Tablacus Maps API @0.1.3
+// Tablacus Maps API @0.1.4
 
 tablacus =
 {
@@ -102,6 +102,27 @@ tablacus =
                 setStyle: function (fn) {},
                 addGeoJson: function (cities) {}
             };
+            this.$.on("moveend", function ()
+            {
+                var center = this.getCenter();
+                this.eachLayer(function (layer)
+                {
+                    if (layer.getLatLng && layer.setLatLng) {
+                        var p = [false];
+                        var latlng = tablacus.maps.LLatLng(layer.getLatLng(), center, p);
+                        if (p[0]) {
+                            layer.setLatLng(latlng);
+                        }
+                    }
+                    if (layer.getLatLngs && layer.setLatLngs) {
+                        var p = [false];
+                        var latlngs = tablacus.maps.LLatLngs(layer.getLatLngs(), center, p);
+                        if (p[0]) {
+                            layer.setLatLngs(latlngs);
+                        }
+                    }
+                });
+            });
         },
 
         Marker: function (opt)
@@ -197,14 +218,29 @@ tablacus =
             ERROR: "ERROR"            
         },
 
-        LLatLng: function (latlng)
+        LLatLng: function (latlng, latlng1, p)
         {
             if (latlng) {
-                return [/function/.test(typeof latlng.lat) ? latlng.lat() : latlng.lat || latlng[0] || 0, /function/.test(typeof latlng.lng) ? latlng.lng() : latlng.lng || latlng[1] || 0];
+                var r = L.latLng(/function/.test(typeof latlng.lat) ? latlng.lat() : latlng.lat || latlng[0] || 0, /function/.test(typeof latlng.lng) ? latlng.lng() : latlng.lng || latlng[1] || 0);
+                if (latlng1 && p) {
+                    for (dog = 9; dog--;) {
+                        d = latlng1.lng - r.lng;
+                        if (d > 180) {
+                            r.lng += 360;
+                            p[0] = true;
+                        } else if (d < -180) {
+                            r.lng -= 360;
+                            p[0] = true;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                return r;
             }
         },
 
-        LLatLngs: function (latlngs, idl)
+        LLatLngs: function (latlngs, idl, p)
         {
             var latlng, latlng1, d, r = [];
             if (idl) {
@@ -212,21 +248,9 @@ tablacus =
             }
             for (var i = 0; i < latlngs.length; i++) {
                 if (latlngs[i].length && /object/i.test(typeof latlngs[i][0])) {
-                    latlng = tablacus.maps.LLatLngs(latlngs[i], idl);
+                    latlng = tablacus.maps.LLatLngs(latlngs[i], idl, p);
                 } else {
-                    latlng = tablacus.maps.LLatLng(latlngs[i]);
-                    if (latlng1) {
-                        for (dog = 9; dog--;) {
-                            d = latlng1[1] - latlng[1];
-                            if (d > 180) {
-                                latlng[1] += 360;
-                            } else if (d < -180) {
-                                latlng[1] -= 360;
-                            } else {
-                                break;
-                            }
-                        }
-                    }
+                    latlng = tablacus.maps.LLatLng(latlngs[i], latlng1, p);
                     latlng1 = latlng;
                 }
                 r.push(latlng);
@@ -250,6 +274,21 @@ tablacus =
                 if (this.map && this.map.$ && b !== undefined && b != this.getVisible()) {
                     if (b) {
                         this.map.$.addLayer(this.$);
+                        var layer = this.$, center = this.map.$.getCenter();
+                        if (layer.getLatLng && layer.setLatLng) {
+                            var p = [false];
+                            var latlng = tablacus.maps.LLatLng(layer.getLatLng(), center, p);
+                            if (p[0]) {
+                                layer.setLatLng(latlng);
+                            }
+                        }
+                        if (layer.getLatLngs && layer.setLatLngs) {
+                            var p = [false];
+                            var latlngs = tablacus.maps.LLatLngs(layer.getLatLngs(), center, p);
+                            if (p[0]) {
+                                layer.setLatLngs(latlngs);
+                            }
+                        }
                     } else {
                         this.map.$.removeLayer(this.$);
                     }
@@ -593,7 +632,7 @@ tablacus.maps.Marker.prototype = {
     setPosition: function (latlng)
     {
         if (latlng) {
-            this.$.setLatLng(tablacus.maps.LLatLng(latlng));
+            this.$.setLatLng(tablacus.maps.LLatLng(latlng), this.map && this.map.getCenter(), [false]);
         }
     },
 
@@ -716,7 +755,7 @@ tablacus.maps.InfoWindow.prototype = {
 
     setPosition: function (latlng)
     {
-        this.$.setLatLng(tablacus.maps.LLatLng(latlng));
+        this.$.setLatLng(tablacus.maps.LLatLng(latlng), this.map && this.map.getCenter(), [false]);
     },
 
     setContent: function (content)
@@ -750,7 +789,9 @@ tablacus.maps.Polyline.prototype = {
     setOptions: function (opt)
     {
         if (opt.path) {
-            this.$.setLatLngs(tablacus.maps.LLatLngs(opt.path, this.map ? this.map.getCenter() : undefined));
+            var p = [false];
+            var latlngs = tablacus.maps.LLatLngs(opt.path, this.map && this.map.getCenter(), p);
+            this.$.setLatLngs(latlngs);
         }
         tablacus.maps.alias.set("Polyline", opt, this.$);
     },
@@ -762,7 +803,11 @@ tablacus.maps.Polyline.prototype = {
 
     mapChanged: function ()
     {
-        this.$.setLatLngs(tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter()));
+        var p = [false];
+        var latlngs = tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter(), p);
+        if (p[0]) {
+            this.$.setLatLngs(latlngs);
+        }
     }
 }
 
@@ -785,14 +830,20 @@ tablacus.maps.Polygon.prototype = {
     setOptions: function (opt)
     {
         if (opt.paths) {
-            this.$.setLatLngs(tablacus.maps.LLatLngs(opt.paths, this.map ? this.map.getCenter() : undefined));
+            var p = [false];
+            var latlngs = tablacus.maps.LLatLngs(opt.paths, this.map && this.map.getCenter(), p);
+            this.$.setLatLngs(latlngs);
         }
         tablacus.maps.alias.set("Polygon", opt, this.$);
     },
 
     mapChanged: function ()
     {
-        this.$.setLatLngs(tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter()));
+        var p = [false];
+        var latlngs = tablacus.maps.LLatLngs(this.$.getLatLngs(), this.map.getCenter(), p);
+        if (p[0]) {
+            this.$.setLatLngs(latlngs);
+        }
     }
 }
 
@@ -800,7 +851,7 @@ tablacus.maps.Circle.prototype = {
     setOptions: function (opt)
     {
         if (opt.center) {
-            this.$.setLatLng(tablacus.maps.LLatLng(opt.center));
+            this.$.setLatLng(tablacus.maps.LLatLng(opt.center), this.map && this.map.getCenter(), [false]);
         }
         tablacus.maps.alias.set("Circle", opt, this.$);
     }
@@ -847,7 +898,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         }
     } else if (opt.location) {
         var latlng = tablacus.maps.LLatLng(opt.location);
-        url = tablacus.settings.reverse.replace(/{lat}/g, encodeURIComponent(latlng[0])).replace(/{lng}/g, encodeURIComponent(latlng[1]));
+        url = tablacus.settings.reverse.replace(/{lat}/g, encodeURIComponent(latlng.lat)).replace(/{lng}/g, encodeURIComponent(latlng.lng));
         xhr.onload = function() 
         { 
             var r = [];
@@ -897,7 +948,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
     //<?= "\n            query = '" . $_SERVER['QUERY_STRING'] . "';\n"; ?>
     if (query) {
         var param = query.split('&');
-        for(var j in param) {
+        for(var j = param.length; j--;) {
             var el = param[j].split('=');
             tablacus.settings[decodeURIComponent(el[0])] = decodeURIComponent(el[1]);
         }
