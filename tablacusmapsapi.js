@@ -1,4 +1,4 @@
-// Tablacus Maps API @0.1.4
+// Tablacus Maps API @0.1.5
 
 tablacus =
 {
@@ -31,7 +31,8 @@ tablacus =
             LEFT_CENTER: 'topleft',
             RIGHT_CENTER: 'topright',
         },
-    
+        ZoomControlStyle: {},
+
         event: {
             addListener: function (o, en, fn)
             {
@@ -274,21 +275,23 @@ tablacus =
                 if (this.map && this.map.$ && b !== undefined && b != this.getVisible()) {
                     if (b) {
                         this.map.$.addLayer(this.$);
-                        var layer = this.$, center = this.map.$.getCenter();
-                        if (layer.getLatLng && layer.setLatLng) {
-                            var p = [false];
-                            var latlng = tablacus.maps.LLatLng(layer.getLatLng(), center, p);
-                            if (p[0]) {
-                                layer.setLatLng(latlng);
+                        try {
+                            var layer = this.$, center = this.map.$.getCenter();
+                            if (layer.getLatLng && layer.setLatLng) {
+                                var p = [false];
+                                var latlng = tablacus.maps.LLatLng(layer.getLatLng(), center, p);
+                                if (p[0]) {
+                                    layer.setLatLng(latlng);
+                                }
                             }
-                        }
-                        if (layer.getLatLngs && layer.setLatLngs) {
-                            var p = [false];
-                            var latlngs = tablacus.maps.LLatLngs(layer.getLatLngs(), center, p);
-                            if (p[0]) {
-                                layer.setLatLngs(latlngs);
+                            if (layer.getLatLngs && layer.setLatLngs) {
+                                var p = [false];
+                                var latlngs = tablacus.maps.LLatLngs(layer.getLatLngs(), center, p);
+                                if (p[0]) {
+                                    layer.setLatLngs(latlngs);
+                                }
                             }
-                        }
+                        } catch (e) {}
                     } else {
                         this.map.$.removeLayer(this.$);
                     }
@@ -386,6 +389,26 @@ tablacus =
             } else {
                 setTimeout(tablacus.maps.callback, 500);
             }
+        },
+
+        modifyCss: function ()
+        {
+            var css = document.styleSheets.item(0);
+            try {
+                css.insertRule('.leaflet-pane { z-index: 0 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-tile-pane    { z-index: 0 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-overlay-pane { z-index: 1 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-shadow-pane { z-index: 2 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-marker-pane { z-index: 3 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-tooltip-pane { z-index: 4 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-popup-pane { z-index: 5 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-control { z-index: 6 !important; }', css.cssRules.length);
+                css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 7 !important; }', css.cssRules.length);
+                css.insertRule('.tablacus-label { position: relative; width: 30px; height: 45px }', css.cssRules.length);
+                css.insertRule('.tablacus-pin { background-color: #4294CF; width: 28px; height: 28px; text-align: center; vertical-align: middle; border-radius: 20px; color: white; margin: 20px auto; }', css.cssRules.length);
+                css.insertRule('.tablacus-pin:after { position: absolute; content: ""; border-top: 15px solid #4294CF; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; top: 46px; left: 9px; }', css.cssRules.length); 
+                css.insertRule('.tablacus-pin span { line-height: 25px; text-align: center; vertical-align: central; }', css.cssRules.length);
+            } catch (e) {}
         },
 
         alias: {
@@ -525,6 +548,23 @@ tablacus.maps.Map.prototype = {
     },
 
     getMapTypeId: function () {},
+    getProjection: function ()
+    {
+        return {
+            $: this.$,
+
+            fromLatLngToPoint: function (latlng)
+            {
+                return this.$.latLngToLayerPoint(tablacus.maps.LLatLng(latlng));
+            },
+
+            fromPointToLatLng: function (pt)
+            {
+                return new tablacus.maps.LatLng(this.$.layerPointToLatLng(pt));
+            }
+        }
+    },
+
     getStreetView: function () {},
     getTilt: function () {},
 
@@ -936,9 +976,11 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         tablacus.maps.LatLngs.prototype[n] = tablacus.maps.array[n];
     }
 
-    var loaded, query, res, re = /tablacusmapsapi\.(js|php)\?(.*)|tablacusmapsapi\.(js|php)$/;
+    var query, res;
+    var loaded = window.L ? true : false;
+    var re = /tablacusmapsapi\.(js|php)\?(.*)|tablacusmapsapi\.(js|php)$/;
     var scripts = document.getElementsByTagName('script');
-    for (var i in scripts) {
+    for (var i = scripts.length; i--;) {
         var src = scripts[i].src;
         if (res = re.exec(src)) {
             query = res[2];
@@ -954,9 +996,13 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         }
     }
     if (tablacus.settings.alias) {
-        window[tablacus.settings.alias] = tablacus;
+        if (!window[tablacus.settings.alias]) {
+            window[tablacus.settings.alias] = {};
+        }
+        window[tablacus.settings.alias].maps = tablacus.maps;
     }
     if (loaded) {
+        tablacus.maps.modifyCss();
         tablacus.maps.callback();
     } else {
         var head = document.getElementsByTagName("head")[0];
@@ -964,25 +1010,7 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
         el.rel = "stylesheet";
         el.href = tablacus.settings.leafletcss;
         el.type = "text/css";
-		el.onload = function ()
-		{
-            var css = document.styleSheets.item(0);
-            try {
-                css.insertRule('.leaflet-pane { z-index: 0 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-tile-pane    { z-index: 0 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-overlay-pane { z-index: 1 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-shadow-pane { z-index: 2 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-marker-pane { z-index: 3 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-tooltip-pane { z-index: 4 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-popup-pane { z-index: 5 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-control { z-index: 6 !important; }', css.cssRules.length);
-                css.insertRule('.leaflet-top, .leaflet-bottom { z-index: 7 !important; }', css.cssRules.length);
-                css.insertRule('.tablacus-label { position: relative; width: 30px; height: 45px }', css.cssRules.length);
-                css.insertRule('.tablacus-pin { background-color: #4294CF; width: 28px; height: 28px; text-align: center; vertical-align: middle; border-radius: 20px; color: white; margin: 20px auto; }', css.cssRules.length);
-                css.insertRule('.tablacus-pin:after { position: absolute; content: ""; border-top: 15px solid #4294CF; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; top: 46px; left: 9px; }', css.cssRules.length); 
-                css.insertRule('.tablacus-pin span { line-height: 25px; text-align: center; vertical-align: central; }', css.cssRules.length);
-            } catch (e) {}
-        };
+        el.onload = tablacus.maps.modifyCss;
         head.appendChild(el);
         if (tablacus.settings.callback) {
             el = document.createElement("script");

@@ -1,6 +1,6 @@
 {
   "name": "tablacusmapsapi",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Tablacus Yet another Maps API with leaflet (OpenStreetMap)",
   "keywords": [
     "Maps",
