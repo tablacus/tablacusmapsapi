@@ -1,11 +1,11 @@
-// Tablacus Maps API @0.1.5
+// Tablacus Maps API @0.1.6
 
 tablacus =
 {
     settings:
     {
-        leafletjs: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.js',
-        leafletcss: 'https://unpkg.com/leaflet@1.3.4/dist/leaflet.css',
+        leafletjs: 'https://unpkg.com/leaflet@1.4.0/dist/leaflet.js',
+        leafletcss: 'https://unpkg.com/leaflet@1.4.0/dist/leaflet.css',
         tilelayer: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         geocoder: 'https://nominatim.openstreetmap.org/search?format=xml&addressdetails=0&q=',
@@ -205,6 +205,11 @@ tablacus =
 
         ImageMapType: function (opt)
         {
+        },
+
+        MVCArray: function (ar)
+        {
+            this.$ = ar || [];
         },
 
         Geocoder: function () {},
@@ -849,7 +854,7 @@ tablacus.maps.Polyline.prototype = {
             this.$.setLatLngs(latlngs);
         }
     }
-}
+};
 
 tablacus.maps.Polygon.prototype = {
     getPath: function ()
@@ -885,7 +890,7 @@ tablacus.maps.Polygon.prototype = {
             this.$.setLatLngs(latlngs);
         }
     }
-}
+};
 
 tablacus.maps.Circle.prototype = {
     setOptions: function (opt)
@@ -895,7 +900,7 @@ tablacus.maps.Circle.prototype = {
         }
         tablacus.maps.alias.set("Circle", opt, this.$);
     }
-}
+};
 
 tablacus.maps.Rectangle.prototype = {
     setOptions: function (opt)
@@ -908,7 +913,7 @@ tablacus.maps.Rectangle.prototype = {
             this.setMap(opt.map);
         }
     }
-}
+};
 
 tablacus.maps.LatLngBounds.prototype.extend = function (latlng)
 {
@@ -958,6 +963,60 @@ tablacus.maps.Geocoder.prototype.geocode = function (opt, callback)
     }
     xhr.open("GET", url, true);
     xhr.send(null);
+};
+
+tablacus.maps.MVCArray.prototype = {
+    clear: function ()
+    {
+        this.$ = [];
+    },
+
+    forEach: function (fn)
+    {
+        for (var i = 0; i < this.$.length; i++) {
+            fn(this.$[i], i);
+        }
+    },
+
+    getArray: function ()
+    {
+        return this.$;
+    },
+
+    getAt: function (i)
+    {
+        return this.$[i];
+    },
+
+    getLength: function ()
+    {
+        return this.$.length;
+    },
+
+    insertAt: function (i, el)
+    {
+        this.$.splice(i, 0, el);
+    },
+
+    pop: function ()
+    {
+        return this.$.pop();
+    },
+
+    push: function (v)
+    {
+        this.$.push(v);
+    },
+
+    removeAt: function (i)
+    {
+        this.$.splice(i, 1);
+    },
+
+    setAt: function (i, v)
+    {
+        this.$[i] = v;
+    }
 };
 
 (function ()
